@@ -9,4 +9,3 @@
 Серверные переменные: `BLOB_READ_WRITE_TOKEN` (подключение Vercel Blob), `ADMIN_PASSWORD_HASH` (первый пароль в формате salt:hash), `SESSION_SECRET` (подпись сессии). Секретов в исходниках нет.
 
 Для публикации загрузите этот каталог в проект Vercel с Node.js 24. Статические страницы находятся в `public`, функции в `api`. Framework preset: Other. Install command: `npm install --omit=dev`. Build command не требуется.
-
