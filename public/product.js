@@ -11,7 +11,7 @@ async function loadProduct(){
     if(!p){status.textContent='Этот товар сейчас недоступен. Посмотрите другие варианты в каталоге.';return;}
     document.title=p.name+' — Ножки для стульев';
     document.querySelector('#detail-name').textContent=p.name;
-    document.querySelector('#detail-price').textContent=p.price||'Цена уточняется';
+    document.querySelector('#detail-price').textContent=window.ShopCart.price(p.price)===null?(p.price||'Цена уточняется'):window.ShopCart.money(window.ShopCart.price(p.price))+' / комплект';
     if(p.description){const description=document.querySelector('#detail-description');description.textContent=p.description;description.hidden=false;}
     const image=document.querySelector('#detail-image');
     const photos=productPhotos(p);const thumbs=document.querySelector('#detail-thumbs');
@@ -26,7 +26,7 @@ async function loadProduct(){
     }else image.append(node('span','Фото скоро появится'));
     const specs=document.querySelector('#detail-specs');
     for(const [key,value]of [['Размеры',p.dimensions],['Наличие',p.quantity],['Город',data.city]])if(value){const row=node('div');row.append(node('dt',key),node('dd',value));specs.append(row);}
-    const contact=document.querySelector('#detail-contact');
+    const contact=document.querySelector('#detail-contact');contact.before(window.ShopCart.controls(p));
     if(data.phone){const a=node('a','Позвонить продавцу','primary-link');a.href='tel:'+data.phone.replace(/[^+\d]/g,'');contact.append(a,node('span',data.phone,'detail-phone'));}else{const a=node('a','Контакты продавца →','text-link');a.href='/#contact';contact.append(a);}
     if(data.note){const note=document.querySelector('#detail-note');note.textContent=data.note;note.hidden=false;}
     status.hidden=true;document.querySelector('#detail').hidden=false;
