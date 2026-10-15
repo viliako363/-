@@ -1,3 +1,4 @@
+import { productPhotos } from './photo-list.js';
 const node=(tag,text='',cls='')=>{const n=document.createElement(tag);n.textContent=text;if(cls)n.className=cls;return n;};
 async function loadProduct(){
   const status=document.querySelector('#detail-status');
@@ -13,7 +14,16 @@ async function loadProduct(){
     document.querySelector('#detail-price').textContent=p.price||'Цена уточняется';
     if(p.description){const description=document.querySelector('#detail-description');description.textContent=p.description;description.hidden=false;}
     const image=document.querySelector('#detail-image');
-    if(p.photo){const a=node('a');a.href=p.photo;a.target='_blank';a.rel='noopener';a.setAttribute('aria-label','Открыть фото крупнее');const img=document.createElement('img');img.src=p.photo;img.alt=p.name;img.addEventListener('error',()=>image.replaceChildren(node('span','Фото временно недоступно')));a.append(img);image.append(a);}else image.append(node('span','Фото скоро появится'));
+    const photos=productPhotos(p);const thumbs=document.querySelector('#detail-thumbs');
+    const buttons=[];
+    function selectPhoto(index){
+      image.replaceChildren();const a=node('a');a.href=photos[index];a.target='_blank';a.rel='noopener';a.setAttribute('aria-label','Открыть фото крупнее');const img=document.createElement('img');img.src=photos[index];img.alt=`${p.name} — фото ${index+1}`;img.addEventListener('error',()=>image.replaceChildren(node('span','Фото временно недоступно')));a.append(img);image.append(a);
+      buttons.forEach((button,i)=>button.setAttribute('aria-pressed',String(i===index)));
+    }
+    if(photos.length){
+      if(photos.length>1)photos.forEach((url,index)=>{const button=node('button','','detail-thumb');button.type='button';button.setAttribute('aria-label',`Показать фото ${index+1}`);const thumbnail=document.createElement('img');thumbnail.src=url;thumbnail.alt='';thumbnail.loading='lazy';button.append(thumbnail);button.addEventListener('click',()=>selectPhoto(index));buttons.push(button);thumbs.append(button);});
+      selectPhoto(0);
+    }else image.append(node('span','Фото скоро появится'));
     const specs=document.querySelector('#detail-specs');
     for(const [key,value]of [['Размеры',p.dimensions],['Наличие',p.quantity],['Город',data.city]])if(value){const row=node('div');row.append(node('dt',key),node('dd',value));specs.append(row);}
     const contact=document.querySelector('#detail-contact');

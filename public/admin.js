@@ -1,3 +1,4 @@
+import { productPhotos, MAX_PHOTOS } from './photo-list.js';
 const $=s=>document.querySelector(s);
 let data={phone:'',city:'',note:'',products:[]};
 let dirty=false,uploads=0;
@@ -21,10 +22,42 @@ function renderProducts(){
   if(!data.products.length)container.append(make('div','Товаров пока нет. Добавьте первую карточку, когда будут реальные данные.','admin-empty'));
   data.products.forEach((p,index)=>{
     const block=make('div','','product-editor');const head=make('div','','product-editor-head');const remove=make('button','Удалить','remove-button');remove.addEventListener('click',()=>{if(confirm('Удалить эту карточку?')){data.products=data.products.filter(x=>x.id!==p.id);renderProducts();markDirty();}});head.append(make('strong','Товар '+(index+1)),remove);
-    const fields=make('div','','admin-fields two-col');for(const args of [['name','Название','Название модели'],['price','Цена','Цена за штуку или комплект'],['dimensions','Размеры','Укажите после замера'],['quantity','Наличие','Фактическое количество'],['photo','Ссылка на фото','https://…',true],['description','Описание','Материал, состояние и другие сведения',true]])fields.append(productField(p,...args));
-    const uploadLabel=make('label','Или загрузите фото с устройства','upload-field');const file=document.createElement('input');file.type='file';file.accept='image/jpeg,image/png,image/webp';const uploadStatus=make('span','','upload-status');const preview=document.createElement('img');preview.className='admin-photo';preview.alt='Фото товара';if(p.photo)preview.src=p.photo;else preview.hidden=true;
-    file.addEventListener('change',async()=>{const selected=file.files?.[0];if(!selected)return;if(selected.size>3*1024*1024){uploadStatus.textContent='Выберите фото до 3 МБ';return;}uploads++;file.disabled=true;uploadStatus.textContent='Загрузка…';try{const res=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:selected});const result=await res.json();if(!res.ok)throw new Error(result.error);p.photo=result.url;preview.src=result.url;preview.hidden=false;fields.querySelectorAll('input')[4].value=result.url;uploadStatus.textContent='Фото загружено. Сохраните изменения.';markDirty();}catch(e){uploadStatus.textContent=e.message;}finally{uploads--;file.disabled=false;}});
-    uploadLabel.append(file,uploadStatus);const check=make('label','','check');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=p.published;checkbox.addEventListener('change',()=>{p.published=checkbox.checked;markDirty();});check.append(checkbox,document.createTextNode('Показывать на сайте'));block.append(head,fields,uploadLabel,preview,check);container.append(block);
+    const fields=make('div','','admin-fields two-col');for(const args of [['name','Название','Название модели'],['price','Цена','Цена за штуку или комплект'],['dimensions','Размеры','Укажите после замера'],['quantity','Наличие','Фактическое количество'],['description','Описание','Материал, состояние и другие сведения',true]])fields.append(productField(p,...args));
+    p.photos=productPhotos(p);p.photo=p.photos[0]||'';
+    const photosPanel=make('section','','photos-panel');const photosTitle=make('h3');const gallery=make('div','','admin-gallery');
+    function renderGallery(){
+      p.photo=p.photos[0]||'';photosTitle.textContent=`Фотографии · ${p.photos.length} из ${MAX_PHOTOS}`;gallery.replaceChildren();
+      if(!p.photos.length)gallery.append(make('p','Добавьте фото. Первое будет обложкой в каталоге.','photo-help'));
+      p.photos.forEach((url,photoIndex)=>{
+        const tile=make('div','','photo-tile');const img=document.createElement('img');img.src=url;img.alt=`Фото товара ${photoIndex+1}`;const actions=make('div','','photo-actions');
+        const cover=make('button',photoIndex===0?'Главное фото':'Сделать главным','photo-cover');cover.type='button';cover.disabled=photoIndex===0;cover.addEventListener('click',()=>{p.photos.splice(photoIndex,1);p.photos.unshift(url);renderGallery();markDirty();});
+        const del=make('button','Убрать','remove-button');del.type='button';del.addEventListener('click',()=>{p.photos.splice(photoIndex,1);renderGallery();markDirty();});actions.append(cover,del);tile.append(img,actions);gallery.append(tile);
+      });
+    }
+    renderGallery();
+    const uploadLabel=make('label','Загрузить фотографии','upload-field');const file=document.createElement('input');file.type='file';file.multiple=true;file.accept='image/jpeg,image/png,image/webp';
+    const uploadStatus=make('span','','upload-status');const help=make('p','Можно выбрать несколько файлов сразу. JPG, PNG или WebP, до 3 МБ каждый.','photo-help');
+    file.addEventListener('change',async()=>{
+      const selected=[...(file.files||[])];if(!selected.length)return;
+      if(selected.length+p.photos.length>MAX_PHOTOS){uploadStatus.textContent=`Для товара доступно до ${MAX_PHOTOS} фото. Свободно: ${MAX_PHOTOS-p.photos.length}.`;file.value='';return;}
+      uploads++;const controls=[...$('#editor').querySelectorAll('button,input[type=file]')];const previous=controls.map(control=>control.disabled);controls.forEach(control=>control.disabled=true);
+      let added=0;const errors=[];
+      try{for(let i=0;i<selected.length;i++){
+        const item=selected[i];uploadStatus.textContent=`Загружаем ${i+1} из ${selected.length}…`;
+        if(item.size>3*1024*1024){errors.push(item.name+': больше 3 МБ');continue;}
+        try{const res=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:item});const result=await res.json();if(!res.ok)throw new Error(result.error||'Ошибка загрузки');p.photos.push(result.url);added++;markDirty();}
+        catch(e){errors.push(item.name+': '+e.message);}
+      }}finally{uploads--;controls.forEach((control,i)=>control.disabled=previous[i]);file.value='';renderGallery();}
+      uploadStatus.textContent=`Загружено: ${added}. ${added?'Нажмите «Сохранить изменения». ':''}`+errors.join('; ');
+    });
+    uploadLabel.append(file);const urlLabel=make('label','Или добавьте ссылку на фото','photo-url');const urlInput=document.createElement('input');urlInput.type='url';urlInput.placeholder='https://…';const urlButton=make('button','Добавить по ссылке','secondary-button');urlButton.type='button';urlButton.addEventListener('click',()=>{
+      const url=urlInput.value.trim();const valid=productPhotos({photos:[url]});
+      if(!valid.length){uploadStatus.textContent='Укажите прямую HTTPS-ссылку на изображение';return;}
+      if(p.photos.length>=MAX_PHOTOS){uploadStatus.textContent=`Можно добавить до ${MAX_PHOTOS} фото`;return;}
+      if(!p.photos.includes(url))p.photos.push(url);urlInput.value='';renderGallery();markDirty();
+    });urlLabel.append(urlInput,urlButton);
+    photosPanel.append(photosTitle,gallery,uploadLabel,help,urlLabel,uploadStatus);
+    const check=make('label','','check');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=p.published;checkbox.addEventListener('change',()=>{p.published=checkbox.checked;markDirty();});check.append(checkbox,document.createTextNode('Показывать на сайте'));block.append(head,fields,photosPanel,check);container.append(block);
   });
 }
 $('#login').addEventListener('submit',async e=>{e.preventDefault();const button=e.submitter;button.disabled=true;$('#login-status').textContent='Входим…';try{await request('login','POST',{password:$('#login-password').value});$('#login-password').value='';$('#login-status').textContent='';await showEditor();}catch(error){$('#login-status').textContent=error.message;}finally{button.disabled=false;}});

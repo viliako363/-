@@ -1,5 +1,6 @@
 import { get, put } from '@vercel/blob';
 import { createHmac, randomBytes, scryptSync, timingSafeEqual, randomUUID } from 'node:crypto';
+import { productPhotos } from '../public/photo-list.js';
 
 const empty = {phone:'',city:'',note:'',products:[]};
 const attempts = new Map();
@@ -49,11 +50,8 @@ function text(value,max) { return typeof value==='string'?value.trim().slice(0,m
 function normalize(raw) {
   if(!raw||!Array.isArray(raw.products)||raw.products.length>100) return null;
   const products=raw.products.map(p=>{
-    let photo=text(p.photo,1500);
-    if(photo && !/^\/api\/photo\?id=[a-zA-Z0-9.-]+$/.test(photo)) {
-      try { if(new URL(photo).protocol!=='https:') photo=''; } catch {photo='';}
-    }
-    return {id:text(p.id,80)||randomUUID(),name:text(p.name,120),price:text(p.price,80),description:text(p.description,1200),dimensions:text(p.dimensions,200),quantity:text(p.quantity,120),photo,published:p.published===true};
+    const photos=productPhotos(p);
+    return {id:text(p.id,80)||randomUUID(),name:text(p.name,120),price:text(p.price,80),description:text(p.description,1200),dimensions:text(p.dimensions,200),quantity:text(p.quantity,120),photo:photos[0]||'',photos,published:p.published===true};
   });
   if(new Set(products.map(p=>p.id)).size!==products.length) return null;
   return {phone:text(raw.phone,80),city:text(raw.city,100),note:text(raw.note,500),products};
@@ -96,7 +94,7 @@ export async function handler(req,res,action) {
       const id=String(req.query.id||'');
       if(!/^[a-f0-9-]+\.(jpg|png|webp)$/.test(id)) return reply(res,404,{error:'Фото не найдено'});
       const data=await read('catalog.json',empty);
-      if(!data.products.some(p=>p.published&&p.photo===`/api/photo?id=${id}`)&&!(await authorized(req))) return reply(res,404,{error:'Фото не найдено'});
+      if(!data.products.some(p=>p.published&&productPhotos(p).includes(`/api/photo?id=${id}`))&&!(await authorized(req))) return reply(res,404,{error:'Фото не найдено'});
       const result=await get(`photos/${id}`,{access:'private'});
       if(!result||result.statusCode!==200) return reply(res,404,{error:'Фото не найдено'});
       res.setHeader('Content-Type',id.endsWith('.png')?'image/png':id.endsWith('.webp')?'image/webp':'image/jpeg');
