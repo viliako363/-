@@ -7,7 +7,7 @@ import { handler } from './index.js';
 const root=fileURLToPath(new URL('../public/',import.meta.url));
 const config=JSON.parse(await readFile(new URL('../vercel.json',import.meta.url),'utf8'));
 const actions=new Set(['catalog','admin','login','logout','session','password','photo','upload']);
-const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml'};
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml'};
 const server=http.createServer(async(req,res)=>{
   for(const header of config.headers[0].headers)res.setHeader(header.key,header.value);
   res.status=code=>{res.statusCode=code;return res;};
